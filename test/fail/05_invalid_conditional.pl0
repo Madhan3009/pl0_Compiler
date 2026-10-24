@@ -1,0 +1,3 @@
+{ expect: invalid conditional }
+var x;
+if x then x := 1.

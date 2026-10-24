@@ -1,0 +1,10 @@
+var x;
+
+procedure inc;
+    x := x + 1;
+
+begin
+    x := 0;
+    call inc;
+    call inc
+end.

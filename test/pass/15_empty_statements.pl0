@@ -1,0 +1,10 @@
+{ PL/0 allows empty statements }
+var x;
+begin
+    ;
+    x := 1;
+    ;
+    begin end;
+    if x = 1 then ;
+    while x = 0 do
+end.

@@ -1,0 +1,5 @@
+{ expect: syntax error }
+var x;
+procedure p
+    x := 1;
+call p.

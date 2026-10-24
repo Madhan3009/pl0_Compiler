@@ -1,0 +1,8 @@
+{ expect: nesting depth exceeded }
+{ This compiler only allows one level of procedures }
+var x;
+procedure outer;
+    procedure inner;
+        x := 1;
+    call inner;
+call outer.

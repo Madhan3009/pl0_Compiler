@@ -1,0 +1,3 @@
+{ expect: number out of range }
+var x;
+x := 99999999999999999999999.

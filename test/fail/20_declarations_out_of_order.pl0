@@ -1,0 +1,5 @@
+{ expect: syntax error }
+{ const must come before var }
+var x;
+const c = 1;
+x := c.

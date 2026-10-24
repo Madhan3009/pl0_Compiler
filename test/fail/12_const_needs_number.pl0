@@ -1,0 +1,3 @@
+{ expect: syntax error }
+const a = b;
+.

@@ -1,0 +1,19 @@
+{ Procedures can have their own const and var declarations }
+var result;
+
+procedure square;
+    const two = 2;
+    var tmp;
+    begin
+        tmp := result;
+        result := tmp * tmp + two - two
+    end;
+
+procedure double;
+    result := result * 2;
+
+begin
+    result := 3;
+    call square;
+    call double
+end.

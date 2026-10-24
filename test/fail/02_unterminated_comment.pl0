@@ -1,0 +1,4 @@
+{ expect: comment }
+var x;
+{ this comment never ends
+x := 1.

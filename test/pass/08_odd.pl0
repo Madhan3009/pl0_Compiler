@@ -1,0 +1,6 @@
+var n;
+begin
+    n := 7;
+    if odd n then n := n - 1;
+    while odd n + 1 do n := n + 1
+end.

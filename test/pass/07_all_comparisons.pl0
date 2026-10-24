@@ -1,0 +1,11 @@
+{ Every comparison operator in a condition }
+var x;
+begin
+    x := 3;
+    if x = 3 then x := 1;
+    if x # 3 then x := 1;
+    if x < 3 then x := 1;
+    if x <= 3 then x := 1;
+    if x > 3 then x := 1;
+    if x >= 3 then x := 1
+end.

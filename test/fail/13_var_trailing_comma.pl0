@@ -1,0 +1,3 @@
+{ expect: syntax error }
+var a, b, ;
+a := 1.

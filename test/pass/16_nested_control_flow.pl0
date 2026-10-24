@@ -1,0 +1,19 @@
+var i, j, sum;
+begin
+    sum := 0;
+    i := 0;
+    while i < 10 do
+    begin
+        j := 0;
+        while j < i do
+        begin
+            if odd j then sum := sum + j;
+            if j >= 5 then
+                begin
+                    sum := sum - 1
+                end;
+            j := j + 1
+        end;
+        i := i + 1
+    end
+end.

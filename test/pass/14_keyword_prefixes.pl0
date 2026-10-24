@@ -1,0 +1,14 @@
+{ Identifiers that start with a keyword are still identifiers }
+var ifx, endless, variable, doit, odds, calls, constant, whiles, thenx, beginning;
+begin
+    ifx := 1;
+    endless := ifx;
+    variable := endless;
+    doit := variable;
+    odds := doit;
+    calls := odds;
+    constant := calls;
+    whiles := constant;
+    thenx := whiles;
+    beginning := thenx
+end.

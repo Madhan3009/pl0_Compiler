@@ -1,0 +1,5 @@
+{ expect: }
+{ Nothing may follow the final dot }
+var x;
+x := 1.
+x := 2.

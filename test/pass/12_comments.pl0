@@ -1,0 +1,10 @@
+{ A comment at the start }
+var x; { a comment after a declaration }
+{
+  A comment
+  spanning
+  several lines
+}
+begin
+    x := 1 { a comment in the middle of a statement } + 2
+end.

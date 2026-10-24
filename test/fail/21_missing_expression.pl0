@@ -1,0 +1,4 @@
+{ expect: }
+{ An assignment needs a value on the right-hand side }
+var x;
+x := .

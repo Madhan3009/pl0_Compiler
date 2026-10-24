@@ -1,0 +1,9 @@
+{ Operator precedence, parentheses and unary plus/minus }
+var a, b, c;
+begin
+    a := 1 + 2 * 3;
+    b := (1 + 2) * 3;
+    c := -a + b / 2 - (a - b) * (c + 1);
+    a := +5;
+    b := -(a * -1)
+end.

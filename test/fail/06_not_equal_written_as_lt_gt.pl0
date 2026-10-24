@@ -1,0 +1,4 @@
+{ expect: syntax error }
+{ PL/0 writes "not equal" as #, so <> is "<" followed by a stray ">" }
+var x;
+if x <> 1 then x := 1.

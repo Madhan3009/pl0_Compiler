@@ -1,0 +1,7 @@
+{ expect: error: 7: syntax error }
+{ The error is on line 7, after a multi-line comment, so this checks line counting }
+var x;
+{
+  comment
+}
+x := 1 1.

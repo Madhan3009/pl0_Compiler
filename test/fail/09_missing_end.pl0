@@ -1,0 +1,6 @@
+{ expect: syntax error }
+var x;
+begin
+    x := 1;
+    x := 2
+.

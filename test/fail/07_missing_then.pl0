@@ -1,0 +1,3 @@
+{ expect: syntax error }
+var x;
+if x = 1 x := 2.
