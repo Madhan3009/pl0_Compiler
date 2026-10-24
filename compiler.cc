@@ -20,6 +20,7 @@
 #include <utility>
 #include <array>
 #include <charconv>
+#include <vector>
 
 
 using namespace std;
@@ -59,6 +60,10 @@ using namespace std;
 #define TOK_RPAREN	')'
 #define TOK_LTEQUAL	'{'     // "<=" ('{' starts a comment, so it's never a real token)
 #define TOK_GTEQUAL	'}'     // ">="
+#define CHECK_LHS   0
+#define CHECK_RHS   1
+#define CHECK_CALL  2
+
 
 static string raw;               // entire source file; must not be modified after readin()
 static string_view token_text;   // text of the current identifier/keyword/number (points into raw)
@@ -67,6 +72,15 @@ static long number_value = 0;    // numeric value of the current TOK_NUMBER
 static size_t line = 1;          // current line number, for error messages
 static int type;                 // type of the current token (the parser's lookahead)
 static int depth = 0;            // how deeply blocks (procedures) are nested
+static int proc = 0;             // To identify if its named proceedure or main proceedure(0 - main , 1 - named proceedure)
+
+struct symTable{
+    int depth;
+    int type;
+    string name;
+};
+
+static vector<symTable> symtab;  // used as a stack: newest symbol at the back
 
 // Return the next character without consuming it ('\0' at end of file).
 static char peek(){
@@ -91,6 +105,186 @@ template <typename... Args>
 template <typename... Args>
 static void aout(const Args&... args){
     (std::cout << ... << args);
+}
+
+// Prepended to every PL/0 identifier in the output so names like "double"
+// or "printf" can't clash with C keywords or library functions.
+static constexpr string_view ID_PREFIX = "pl0_";
+
+static void cg_proceedure(){
+    if(proc == 0){
+        aout("int\n");
+		aout("main(int argc, char *argv[])\n");
+    }
+    else{
+        aout("void\n");
+		aout(ID_PREFIX, token_text, "(void)\n");
+    }
+    aout("{\n");
+}
+
+static void cg_epilogue(){
+    aout(";");
+
+	if (proc == 0)
+		aout("return 0;");
+
+	aout("\n}\n\n");
+}
+
+static void cg_crlf(){
+    aout("\n");
+}
+
+static void cg_call(){
+    aout(ID_PREFIX, token_text, "();\n");
+}
+
+// Close an "odd" test: cg_symbol() opened it with "(", so "odd x" becomes "(x)&1".
+static void cg_odd(){
+    aout(")&1");
+}
+
+static void cg_var(){
+    aout("long ", ID_PREFIX, token_text, ";");
+}
+
+static void cg_end(){
+    aout("The code is compiled\n");
+}
+
+static void cg_const(){
+    aout("const long ", ID_PREFIX, token_text, " = ");
+}
+
+static void cg_semicolon(){
+    aout(";\n");
+}
+
+static void cg_symbol(){
+    switch(type){
+	case TOK_IDENT:
+		aout(ID_PREFIX, token_text);
+		break;
+	case TOK_NUMBER:
+		aout(token_text);
+		break;
+	case TOK_BEGIN:
+		aout("{\n");
+		break;
+	case TOK_END:
+		aout(";\n}\n");
+		break;
+	case TOK_IF:
+		aout("if(");
+		break;
+	case TOK_THEN:
+	case TOK_DO:
+		aout(")");
+		break;
+	case TOK_ODD:
+		aout("(");
+		break;
+	case TOK_WHILE:
+		aout("while(");
+		break;
+	case TOK_EQUAL:
+		aout("==");
+		break;
+	case TOK_COMMA:
+		aout(",");
+		break;
+	case TOK_ASSIGN:
+		aout("=");
+		break;
+	case TOK_HASH:
+		aout("!=");
+		break;
+	case TOK_LESSTHAN:
+		aout("<");
+		break;
+	case TOK_GREATERTHAN:
+		aout(">");
+		break;
+	case TOK_LTEQUAL:
+		aout("<=");
+		break;
+	case TOK_GTEQUAL:
+		aout(">=");
+		break;
+	case TOK_PLUS:
+		aout("+");
+		break;
+	case TOK_MINUS:
+		aout("-");
+		break;
+	case TOK_MULTIPLY:
+		aout("*");
+		break;
+	case TOK_DIVIDE:
+		aout("/");
+		break;
+	case TOK_LPAREN:
+		aout("(");
+		break;
+	case TOK_RPAREN:
+		aout(")");
+	}
+}
+
+static void initSymbols(){
+    symtab.push_back({0, TOK_PROCEDURE, "main"});
+}
+
+// Add the current identifier (token_text) to the table with the given type.
+// block() has already incremented depth, so the current scope is depth - 1.
+static void addSymbols(int type){
+    for (const auto& sym : symtab) {
+        if (sym.name == token_text && sym.depth == depth - 1)
+            error("duplicate symbol: ", token_text);
+    }
+
+    symtab.push_back({depth - 1, type, string(token_text)});
+}
+
+static void destroySymbols(){
+    while(!symtab.empty() && symtab.back().type != TOK_PROCEDURE){
+        symtab.pop_back();
+    }
+}
+
+static void symCheck(int check){
+    const symTable *temp;
+    
+    bool found = false;
+    for(const auto& sym : symtab){
+        if(sym.name == token_text){
+               temp = &sym;
+               found = true;
+        }
+    }
+    if(!found){
+        error("undefined symbol: ",token_text);
+    }
+    
+    switch(check){
+        case CHECK_LHS:
+            if(temp -> type != TOK_VAR){
+                error("must be a variable: ",token_text);
+            }
+            break;
+        case CHECK_RHS:
+            if(temp -> type == TOK_PROCEDURE){
+                error("must not be a procedure: ", token_text);
+            }
+            break;
+        case CHECK_CALL:
+            if(temp -> type != TOK_PROCEDURE){
+                error("must be a procedure:", token_text);
+            }
+            break;
+    }
+
 }
 
 // Skip a { ... } comment. The opening '{' has already been consumed.
@@ -245,11 +439,13 @@ static void term();   // expression() and factor() call each other, so declare a
 static void expression(){
 
     if(type == TOK_PLUS || type == TOK_MINUS){   // optional leading sign
+        cg_symbol();
         next_token();
     }
     term();
 
     while(type == TOK_PLUS || type == TOK_MINUS){
+        cg_symbol();
         next_token();
         term();
     }
@@ -259,17 +455,25 @@ static void expression(){
 // Every expression bottoms out here, so a missing expression is caught here.
 static void factor(){
     if(type == TOK_PLUS || type == TOK_MINUS){   // sign inside a term, e.g. a * -1
+        cg_symbol();
         next_token();
     }
 
     switch(type){
         case TOK_IDENT:
+            symCheck(CHECK_RHS);
+            [[fallthrough]];
         case TOK_NUMBER:
+            cg_symbol();
             next_token();
             break;
         case TOK_LPAREN:
-            next_token();
+            cg_symbol();
+            expect(TOK_LPAREN);
             expression();
+            if(type == TOK_RPAREN){
+                cg_symbol();
+            }
             expect(TOK_RPAREN);
             break;
         default:
@@ -283,6 +487,7 @@ static void term(){
     factor();
 
     while(type == TOK_MULTIPLY || type == TOK_DIVIDE){
+        cg_symbol();
         next_token();
         factor();
     }
@@ -292,8 +497,10 @@ static void term(){
 //           | expression ( "=" | "#" | "<" | "<=" | ">" | ">=" ) expression ;
 static void condition(){
     if(type == TOK_ODD){
+        cg_symbol();
         expect(TOK_ODD);
         expression();
+        cg_odd();
         return;
     }
     expression();
@@ -304,6 +511,7 @@ static void condition(){
          case TOK_LTEQUAL:
          case TOK_GREATERTHAN:
          case TOK_GTEQUAL:
+            cg_symbol();
             next_token();          // any comparison operator is fine; consume it
             break;
          default:
@@ -323,112 +531,60 @@ static void condition(){
 static void statement(){
     switch(type){
         case TOK_IDENT:
+            symCheck(CHECK_LHS);
+            cg_symbol();
             expect(TOK_IDENT);
+            if(type == TOK_ASSIGN){
+                cg_symbol();
+            }
             expect(TOK_ASSIGN);
             expression();
             break;
         case TOK_CALL:
             expect(TOK_CALL);
+            if(type == TOK_IDENT){
+                symCheck(CHECK_CALL);
+                cg_call();
+            }
             expect(TOK_IDENT);
             break;
         case TOK_BEGIN:
+            cg_symbol();
             expect(TOK_BEGIN);
             statement();
             while(type == TOK_SEMICOLON){
+                cg_semicolon();
                 expect(TOK_SEMICOLON);
                 statement();
+            }
+            if(type == TOK_END){
+                cg_symbol();
             }
             expect(TOK_END);
             break;
         case TOK_IF:
+            cg_symbol();
             expect(TOK_IF);
             condition();
+            if(type == TOK_THEN){
+                cg_symbol();
+            }
             expect(TOK_THEN);
             statement();
             break;
         case TOK_WHILE:
+            cg_symbol();
             expect(TOK_WHILE);
             condition();
+            if(type == TOK_DO){
+                cg_symbol();
+            }
             expect(TOK_DO);
             statement();
             break;
     }
 }
 
-static void cg_end(){
-    aout("The code is compiled");
-}
-
-static void cg_const(){
-    aout("const long ", token_text);
-}
-
-static void cg_semicolon(){
-    aout(";\n");
-}
-
-static void cg_symbol(){
-    switch(type){
-        	case TOK_IDENT:
-	case TOK_NUMBER:
-		aout(token_text);
-		break;
-	case TOK_BEGIN:
-		aout("{\n");
-		break;
-	case TOK_END:
-		aout(";\n}\n");
-		break;
-	case TOK_IF:
-		aout("if(");
-		break;
-	case TOK_THEN:
-	case TOK_DO:
-		aout(")");
-		break;
-	case TOK_ODD:
-		aout("(");
-		break;
-	case TOK_WHILE:
-		aout("while(");
-		break;
-	case TOK_EQUAL:
-		aout("==");
-		break;
-	case TOK_COMMA:
-		aout(",");
-		break;
-	case TOK_ASSIGN:
-		aout("=");
-		break;
-	case TOK_HASH:
-		aout("!=");
-		break;
-	case TOK_LESSTHAN:
-		aout("<");
-		break;
-	case TOK_GREATERTHAN:
-		aout(">");
-		break;
-	case TOK_PLUS:
-		aout("+");
-		break;
-	case TOK_MINUS:
-		aout("-");
-		break;
-	case TOK_MULTIPLY:
-		aout("*");
-		break;
-	case TOK_DIVIDE:
-		aout("/");
-		break;
-	case TOK_LPAREN:
-		aout("(");
-		break;
-	case TOK_RPAREN:
-		aout(")");
-	}
-}
 
 // block = [ "const" ident "=" number { "," ident "=" number } ";" ]
 //         [ "var" ident { "," ident } ";" ]
@@ -443,15 +599,23 @@ static void block(){
     if(type == TOK_CONST){
         expect(TOK_CONST);
         if(type == TOK_IDENT){
+            addSymbols(TOK_CONST);
             cg_const();
         }
         expect(TOK_IDENT);
         expect(TOK_EQUAL);
+        
+        if(type == TOK_NUMBER){
+            cg_symbol();
+            cg_semicolon();
+        }
+
         expect(TOK_NUMBER);
 
         while(type == TOK_COMMA){
             expect(TOK_COMMA);
             if(type == TOK_IDENT){
+                addSymbols(TOK_CONST);
                 cg_const();
             }
             expect(TOK_IDENT);
@@ -468,26 +632,50 @@ static void block(){
     }
     if (type == TOK_VAR) {
 		expect(TOK_VAR);
+        if(type == TOK_IDENT){
+            addSymbols(TOK_VAR);
+            cg_var();
+        }
 		expect(TOK_IDENT);
 		while (type == TOK_COMMA) {
 			expect(TOK_COMMA);
-			expect(TOK_IDENT);
+			if(type == TOK_IDENT){
+                addSymbols(TOK_VAR);
+                cg_var();
+            }
+            expect(TOK_IDENT);
 		}
 		expect(TOK_SEMICOLON);
+        cg_crlf();
 	}
 
 
     while(type == TOK_PROCEDURE){
+        proc = 1;
+
         expect(TOK_PROCEDURE);
+        if(type == TOK_IDENT){
+            addSymbols(TOK_PROCEDURE);
+            cg_proceedure(); 
+        }
         expect(TOK_IDENT);
         expect(TOK_SEMICOLON);
 
         block();       // a procedure's body is itself a block
-
+        
         expect(TOK_SEMICOLON);
+   
+        proc = 0;
+
+        destroySymbols();
+    }
+    if(proc == 0){
+        cg_proceedure();
     }
 
     statement();
+
+    cg_epilogue(); 
     
     if(--depth < 0){
         error("nesting depth underflow");
