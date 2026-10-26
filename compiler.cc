@@ -3,13 +3,12 @@
  *
  * Usage: pl0c file.pl0
  *
- * Currently contains the lexer, which breaks the source file into tokens,
- * and a recursive-descent parser that checks the program's syntax.
+ * Translates a PL/0 program into C, written to standard output.
+ * A lexer breaks the source file into tokens, and a recursive-descent
+ * parser checks the program's syntax, tracks symbols, and emits C as it goes.
  * Each parser function handles one grammar rule, shown in its comment.
  */
 
-#include <complex>
-#include <ctime>
 #include <fstream>
 #include <filesystem>
 #include <string>
@@ -147,10 +146,6 @@ static void cg_odd(){
 
 static void cg_var(){
     aout("long ", ID_PREFIX, token_text, ";");
-}
-
-static void cg_end(){
-    aout("The code is compiled\n");
 }
 
 static void cg_const(){
@@ -684,6 +679,7 @@ static void block(){
 
 // program = block "." ;
 static void parse(){
+    initSymbols();
     next_token();
     block();
     expect(TOK_DOT);
@@ -692,7 +688,6 @@ static void parse(){
         error("extra tokens after end of program");
     }
 
-    cg_end();
 }
     
 // Read the whole source file at path into raw.
@@ -716,7 +711,7 @@ static void readin(const char *path) {
 
 int main(int argc, char *argv[]){
     if(argc != 2){
-        cerr << "Usage :" << argv[0] << "file.pl0" << endl;
+        cerr << "Usage: " << argv[0] << " file.pl0" << endl;
         exit(1);
     }
 
